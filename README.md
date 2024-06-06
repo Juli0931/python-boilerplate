@@ -1,7 +1,7 @@
 # 🐍 Python simple Flask REST API
 ### Installation
-- [ ] Clone the repo
-- [ ] Create environment: python3 -m venv venv
-- [ ] Activate environment: source venv/bin/activate
-- [ ] Install dependencies: pip install -r requirements.txt
-- [ ] Execute app on terminal: python3 main.py
+- [X] Clone the repo
+- [X] Create environment: python -m venv myenv
+- [X] Activate environment: .\myenv\Scripts\Activate
+- [X] Install dependencies: pip install -r requirements.txt
+- [X] Execute app on terminal: python main.py

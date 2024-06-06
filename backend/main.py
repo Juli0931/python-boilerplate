@@ -1,141 +1,158 @@
-# from flask import Flask, request, jsonify, redirect
-# from flask_cors import CORS
-# from spotify_integration import SpotifyClient
-
-# app = Flask(__name__)
-# CORS(app)
-
-# # Instancia del cliente de Spotify
-# spotify_client = SpotifyClient(client_id="59cb9a527cfd43e2813e6d52b5f68aeb", client_secret="aed7a9861d1040b1b7e1a9608ef503db", redirect_uri="http://localhost:5000/callback")
-
-# # Endpoints de auth
-# @app.route("/", methods=["GET"])
-# def index():
-#     auth_url = spotify_client.get_authorize_url()
-#     return redirect(auth_url)
-
-# @app.route("/callback", methods=["GET"])
-# def callback():
-#     code = request.args.get('code')
-#     access_token = spotify_client.get_access_token(code)
-#     sp = spotify_client.create_spotify_instance(access_token)
-
-#     # Datos del usuario (Profile)
-#     user_data = sp.current_user()
-#     saved_tracks = sp.current_user_saved_tracks(limit=20)
-    
-#     return jsonify({
-#         'user_data': user_data,
-#         'saved_tracks': saved_tracks
-#     })
-
-# # Endpoint para recibir datos de encuesta
-# @app.route('/encuesta', methods=['POST'])
-# def recibir_encuesta():
-#     try:
-#         data = request.json
-#         print("Datos de la encuesta recibidos:", data)
-        
-#         if not data:
-#             return jsonify({'error': 'No se proporcionaron datos'}), 400
-
-#         return jsonify({'message': 'Datos de la encuesta recibidos con éxito'}), 201
-#     except Exception as e:
-#         print("Error al procesar la solicitud:", e)
-#         return jsonify({'error': 'Error al procesar la solicitud'}), 500
-
-# if __name__ == "__main__":
-#     app.run(debug=True, port=5000)
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
 from spotify_integration import SpotifyClient
+import requests
 
 app = Flask(__name__)
 CORS(app)
 
 # Instancia del cliente de Spotify
-spotify_client = SpotifyClient(client_id="59cb9a527cfd43e2813e6d52b5f68aeb", client_secret="aed7a9861d1040b1b7e1a9608ef503db", redirect_uri="http://localhost:5000/callback")
+spotify_client = SpotifyClient(client_id="59cb9a527cfd43e2813e6d52b5f68aeb", client_secret="7387b7811f7348c28e2be0a72c730b38", redirect_uri="http://localhost:5000/callback")
 
-# Datos de encuesta
-encuesta_data = []
+songs_features = []
 
-# Endpoint de autenticación de Spotify
+# Endpoints
 @app.route("/", methods=["GET"])
 def index():
     auth_url = spotify_client.get_authorize_url()
     return redirect(auth_url)
 
-# Endpoint de callback de Spotify
 @app.route("/callback", methods=["GET"])
 def callback():
     code = request.args.get('code')
-    access_token = spotify_client.get_access_token(code)
-    sp = spotify_client.create_spotify_instance(access_token)
+    token_info = spotify_client.get_access_token(code)
+    
+    if token_info:
+        access_token = token_info['access_token']
+        sp = spotify_client.create_spotify_instance(access_token)
 
-    # Datos del usuario (Profile)
-    user_data = sp.current_user()
-    saved_tracks = sp.current_user_saved_tracks(limit=20)
+        # Datos del usuario (Profile)
+        user_data = sp.current_user()
+        saved_tracks = sp.current_user_saved_tracks(limit=5)
 
-    return jsonify({
-        'user_data': user_data,
-        'saved_tracks': saved_tracks
-    })
-
-# Endpoint para recibir datos de encuesta
-@app.route('/encuesta', methods=['POST'])
-def recibir_encuesta():
-    try:
-        data = request.json
-        print("Datos de la encuesta recibidos:", data)
+        process_saved_tracks(saved_tracks)
         
-        if not data:
+        return jsonify({
+            'user_data': user_data,
+            'saved_tracks': saved_tracks,
+        })
+    else:
+        return jsonify({'error': 'No se pudo obtener el token de acceso'}), 400
+
+def process_saved_tracks(saved_tracks):
+    global songs_features
+    songs_features = []
+    for track in saved_tracks['items']:
+        song_features = {
+            'id': track['track']['id'],
+            'name': track['track']['name'],
+            'artists': [artist['name'] for artist in track['track']['artists']]
+        }
+        songs_features.append(song_features)
+
+
+
+
+
+# Aqui empieza el error
+def get_recommendations(survey_data, access_token, songs_features):
+    base_url = 'https://api.spotify.com/v1/recommendations'
+
+    last_saved_tracks = [song['id'] for song in songs_features[-5:]]
+
+    params = {
+        'limit': 5,
+        'seed_tracks': ','.join(last_saved_tracks),
+        'seed_genres': survey_data.get('seed_genres', ''),
+        'target_energy': survey_data.get('target_energy', 0),
+        'target_instrumentalness': survey_data.get('target_instrumentalness', 0),
+        'target_popularity': survey_data.get('target_popularity', 50),
+        'target_tempo': survey_data.get('target_tempo', 0),
+    }
+    
+    headers = {
+        'Authorization':f'Bearer {access_token}'
+    }
+
+    # Crear la cadena de consulta
+    query_string = '&'.join([f"{key}={value}" for key, value in params.items()])
+
+    full_url = f"{base_url}?{query_string}"
+
+    response = requests.get(full_url, headers=headers)
+
+    if response.status_code == 200:
+        recommendations = response.json()
+        return recommendations['tracks']
+    else:
+        print(f"Error al obtener recomendaciones: {response.status_code}")
+        return None
+# Y aquí termina
+
+
+
+
+    # Otra manera de hacerlo pero tampoco sirve :)
+    # if not songs_features:
+    #     print("Error: No se encontraron características de canciones.")
+    #     return None
+    
+    # last_saved_tracks = [song['id'] for song in songs_features[-5:]]
+
+    # base_url = 'https://api.spotify.com/v1/recommendations'
+    # params = {
+    #     'market': 'US',
+    #     'seed_tracks': ','.join(last_saved_tracks),
+    #     'seed_genres': survey_data.get('seed_genres', ''),
+    #     'target_energy': survey_data.get('target_energy', 0),
+    #     'target_instrumentalness': survey_data.get('target_instrumentalness', 0),
+    #     'target_popularity': survey_data.get('target_popularity', 50),
+    #     'target_tempo': survey_data.get('target_tempo', 0),
+    #     'limit': 5
+    # }
+    
+    # # Filtrar los parámetros que tienen un valor diferente de 0 o cadena vacía
+    # params = {key: value for key, value in params.items() if value != 0 and value != ''}
+
+    # # Crear la cadena de consulta
+    # query_string = '&'.join([f"{key}={value}" for key, value in params.items()])
+
+    # full_url = f"{base_url}?{query_string}"
+
+    # headers = {
+    #     'Authorization': f'Bearer {access_token}'
+    # }
+
+    # response = requests.get(full_url, headers=headers)
+
+    # if response.status_code == 200:
+    #     recommendations = response.json()
+    #     return recommendations['tracks']
+    # else:
+    #     print(f"Error al obtener recomendaciones: {response.status_code}")
+    #     return None
+
+
+
+    
+    
+# Endpoint para recibir y procesar los datos de la encuesta
+@app.route('/recommendations', methods=['POST'])
+def recommendations():
+    try:
+        survey_data = request.json
+        print("Datos de la encuesta recibidos:", survey_data)
+        
+        if not survey_data:
             return jsonify({'error': 'No se proporcionaron datos'}), 400
 
-        # Agregar los datos de la encuesta al registro global
-        encuesta_data.append(data)
-
-        return jsonify({'message': 'Datos de la encuesta recibidos con éxito'}), 201
-    except Exception as e:
-        print("Error al procesar la solicitud:", e)
-        return jsonify({'error': 'Error al procesar la solicitud'}), 500
-
-# Endpoint para obtener recomendaciones
-@app.route('/recomendaciones', methods=['GET'])
-def obtener_recomendaciones():
-    try:
-        # Obtener las preferencias del usuario desde la encuesta
-        preferencias_usuario = encuesta_data[-1]  # Tomar la última encuesta recibida como ejemplo
-
-        # Extraer las características relevantes de las canciones guardadas por el usuario
-        saved_tracks = request.json['saved_tracks']
-        canciones_guardadas = []
-        for item in saved_tracks['items']:
-            cancion = {
-                'id': item['track']['id'],
-                'nombre': item['track']['name'],
-                'artista': item['track']['artists'][0]['name'],
-                'genero': 'Pop'  # Supongamos que no tenemos información detallada sobre el género en este punto
-            }
-            canciones_guardadas.append(cancion)
-
-        # Filtrar canciones basadas en géneros literarios y cinematográficos favoritos del usuario
-        canciones_filtradas = [cancion for cancion in canciones_guardadas if cancion['genero'] in preferencias_usuario['generosLiterarios'] or
-                               cancion['genero'] in preferencias_usuario['generosCinematograficos']]
-
-        # Calcular la similitud entre las canciones filtradas y las preferencias del usuario
-        tfidf_vectorizer = TfidfVectorizer()
-        tfidf_matrix = tfidf_vectorizer.fit_transform([cancion['genero'] + ' ' + cancion['artista'] for cancion in canciones_filtradas])
-        user_preferences = tfidf_vectorizer.transform(preferencias_usuario['generosLiterarios'] + preferencias_usuario['generosCinematograficos'])
-        cosine_similarities = cosine_similarity(user_preferences, tfidf_matrix).flatten()
-
-        # Ordenar las canciones por similitud y obtener las recomendaciones
-        recommendations_indices = cosine_similarities.argsort()[::-1]
-        top_recommendations = [canciones_filtradas[idx] for idx in recommendations_indices[:5]]  # Obtener las 5 mejores recomendaciones
-
-        return jsonify({'recomendaciones': top_recommendations}), 200
+        access_token = spotify_client.get_access_token_from_cache()
+        if access_token:
+            recommendations = get_recommendations(survey_data, access_token, songs_features) 
+            return jsonify({'recommendations': recommendations}), 200
+        else:
+            return jsonify({'error': 'No se pudo obtener el token de acceso'}), 400
+        
     except Exception as e:
         print("Error al procesar la solicitud:", e)
         return jsonify({'error': 'Error al procesar la solicitud'}), 500

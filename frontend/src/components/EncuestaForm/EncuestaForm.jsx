@@ -3,94 +3,145 @@ import axios from 'axios';
 
 export function EncuestaForm() {
   const [encuestaData, setEncuestaData] = useState({
-    gustaLeerLibros: '',
-    generosLiterarios: [],
-    generosCinematograficos: [],
-    actividadesHobbies: [],
-    inOrOut: ''
+    genre: '',
+    tempo: '',
+    energy: '',
+    instrumentalness: '',
+    popularity: ''
   });
 
   const handleInputChange = (event) => {
-    const { name, value, type } = event.target;
-    if (type === 'checkbox') {
-      const isChecked = event.target.checked;
-      setEncuestaData(prevState => ({
-        ...prevState,
-        [name]: isChecked ? [...(prevState[name] || []), value] : (prevState[name] || []).filter(item => item !== value)
-      }));
-    } else {
-      setEncuestaData(prevState => ({
-        ...prevState,
-        [name]: value
-      }));
-    }
+    const { name, value } = event.target;
+    setEncuestaData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     console.log(encuestaData);
+
+    const mappedData = {
+      seed_genres: encuestaData.genre,
+      target_tempo: mapTempo(encuestaData.tempo),
+      target_energy: mapEnergy(encuestaData.energy),
+      target_instrumentalness: mapInstrumentalness(encuestaData.instrumentalness),
+      target_popularity: mapPopularity(encuestaData.popularity)
+    };
+
     try {
-      const response = await axios.post('http://localhost:5000/encuesta', encuestaData);
+      const response = await axios.post('http://localhost:5000/recommendations', mappedData, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       console.log(response.data);
     } catch (error) {
       console.error('Error al enviar la encuesta:', error);
     }
   };
-  
+
+  const mapTempo = (tempo) => {
+    switch (tempo) {
+      case 'Lento': return 60; 
+      case 'Medio': return 120; 
+      case 'Rápido': return 180; 
+      default: return 120;
+    }
+  };
+
+  const mapEnergy = (energy) => {
+    switch (energy) {
+      case 'Alta energía': return 0.8;
+      case 'Mediana energía': return 0.5;
+      case 'Baja energía': return 0.2;
+      default: return 0.5;
+    }
+  };
+
+  const mapInstrumentalness = (instrumentalness) => {
+    switch (instrumentalness) {
+      case 'Principalmente con letra': return 0.1;
+      case 'Equilibrio entre instrumentos y voz': return 0.5;
+      case 'Mayormente instrumental': return 0.8;
+      default: return 0.5;
+    }
+  };
+
+  const mapPopularity = (popularity) => {
+    switch (popularity) {
+      case 'Populares': return 80;
+      case 'Medianamente populares': return 50;
+      case 'Menos populares': return 20;
+      default: return 50;
+    }
+  };
 
   return (
     <div>
-      <h2>Encuesta para el Spotify picho</h2>
+      <h2>Encuesta de Preferencias Musicales</h2>
       <form onSubmit={handleSubmit}>
 
         <label>
-          ¿Te gusta leer libros?
-          <input type="radio" name="gustaLeerLibros" value="Sí" onChange={handleInputChange} /> Sí
-          <input type="radio" name="gustaLeerLibros" value="No" onChange={handleInputChange} /> No
+          ¿Qué tipo de música te gusta más?
+          <select name="genre" value={encuestaData.genre} onChange={handleInputChange}>
+            <option value="">Selecciona un género</option>
+            <option value="pop">Pop</option>
+            <option value="rock">Rock</option>
+            <option value="hip-hop">Hip-Hop/Rap</option>
+            <option value="electronic">Electrónica</option>
+            <option value="jazz">Jazz</option>
+            <option value="r&b">R&B/Soul</option>
+            <option value="reggae">Reggae</option>
+            <option value="folk">Folk</option>
+            <option value="indie">Indie</option>
+            <option value="metal">Metal</option>
+          </select>
         </label>
 
         <label>
-          ¿Cuáles son tus géneros literarios favoritos? (Selecciona hasta 2)
-          <input type="checkbox" name="generosLiterarios" value="Novela" onChange={handleInputChange} /> Novela
-          <input type="checkbox" name="generosLiterarios" value="CienciaFicción" onChange={handleInputChange} /> Ciencia ficción
-          <input type="checkbox" name="generosLiterarios" value="Fantasía" onChange={handleInputChange} /> Fantasía
-          <input type="checkbox" name="generosLiterarios" value="Misterio/Thriller" onChange={handleInputChange} /> Misterio/Thriller
-          <input type="checkbox" name="generosLiterarios" value="Romance" onChange={handleInputChange} /> Romance
-          <input type="checkbox" name="generosLiterarios" value="NoFicción" onChange={handleInputChange} /> No ficción
-          <input type="checkbox" name="generosLiterarios" value="Historia" onChange={handleInputChange} /> Historia
+          ¿Qué ritmo prefieres?
+          <select name="tempo" value={encuestaData.tempo} onChange={handleInputChange}>
+            <option value="">Selecciona un ritmo</option>
+            <option value="Lento">Lento</option>
+            <option value="Medio">Medio</option>
+            <option value="Rápido">Rápido</option>
+          </select>
         </label>
 
         <label>
-          ¿Cuáles son tus géneros de películas o series favoritos? (Selecciona hasta 2)
-          <input type="checkbox" name="generosCinematograficos" value="Acción" onChange={handleInputChange} /> Acción
-          <input type="checkbox" name="generosCinematograficos" value="Comedia" onChange={handleInputChange} /> Comedia
-          <input type="checkbox" name="generosCinematograficos" value="Drama" onChange={handleInputChange} /> Drama
-          <input type="checkbox" name="generosCinematograficos" value="CienciaFicción" onChange={handleInputChange} /> Ciencia ficción
-          <input type="checkbox" name="generosCinematograficos" value="Fantasía" onChange={handleInputChange} /> Fantasía
-          <input type="checkbox" name="generosCinematograficos" value="Terror" onChange={handleInputChange} /> Terror
-          <input type="checkbox" name="generosCinematograficos" value="Romance" onChange={handleInputChange} /> Romance
+          ¿Qué nivel de energía te gusta en tu música?
+          <select name="energy" value={encuestaData.energy} onChange={handleInputChange}>
+            <option value="">Selecciona un nivel de energía</option>
+            <option value="Alta energía">Alta energía</option>
+            <option value="Mediana energía">Mediana energía</option>
+            <option value="Baja energía">Baja energía</option>
+          </select>
         </label>
 
         <label>
-          ¿Cuáles de las siguientes actividades disfrutas en tu tiempo libre? (Selecciona hasta 2)
-          <input type="checkbox" name="actividadesHobbies" value="Deportes" onChange={handleInputChange} /> Deportes
-          <input type="checkbox" name="actividadesHobbies" value="Cocina" onChange={handleInputChange} /> Cocina
-          <input type="checkbox" name="actividadesHobbies" value="Viajes" onChange={handleInputChange} /> Viajes
-          <input type="checkbox" name="actividadesHobbies" value="Fotografía" onChange={handleInputChange} /> Fotografía
-          <input type="checkbox" name="actividadesHobbies" value="Pintura/Dibujo" onChange={handleInputChange} /> Pintura/Dibujo
-          <input type="checkbox" name="actividadesHobbies" value="Jardineria" onChange={handleInputChange} /> Jardineria
-          <input type="checkbox" name="actividadesHobbies" value="Videojuegos" onChange={handleInputChange} /> Videojuegos
+          ¿Prefieres música con letra o instrumental?
+          <select name="instrumentalness" value={encuestaData.instrumentalness} onChange={handleInputChange}>
+            <option value="">Selecciona una opción</option>
+            <option value="Principalmente con letra">Principalmente con letra</option>
+            <option value="Equilibrio entre instrumentos y voz">Equilibrio entre instrumentos y voz</option>
+            <option value="Mayormente instrumental">Mayormente instrumental</option>
+          </select>
         </label>
 
         <label>
-          ¿Prefieres actividades al aire libre o en interiores?
-          <input type="radio" name="inOrOut" value="Aire libre" onChange={handleInputChange} /> Aire libre
-          <input type="radio" name="inOrOut" value="Interiores" onChange={handleInputChange} /> Interiores
-          <input type="radio" name="inOrOut" value="Ambos" onChange={handleInputChange} /> Ambos
+          ¿Te gusta escuchar música popular o prefieres algo más desconocido?
+          <select name="popularity" value={encuestaData.popularity} onChange={handleInputChange}>
+            <option value="">Selecciona una opción</option>
+            <option value="Populares">Populares</option>
+            <option value="Medianamente populares">Medianamente populares</option>
+            <option value="Menos populares">Menos populares</option>
+          </select>
         </label>
 
         <button type="submit">¡Terminé!</button>
       </form>
     </div>
   );
-};
+}
